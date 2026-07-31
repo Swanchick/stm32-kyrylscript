@@ -11,7 +11,7 @@ use panic_probe as _;
 use stm32_hal2::{
     clocks::Clocks,
     gpio::{Pin, PinMode, Port},
-    pac,
+    pac::{self, interrupt},
 };
 
 use embedded_alloc::TlsfHeap;
@@ -132,6 +132,9 @@ fn main() -> ! {
         }
     }
 }
+
+#[interrupt]
+fn USART1() {}
 
 #[defmt::panic_handler]
 fn panic() -> ! {

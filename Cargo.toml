@@ -10,7 +10,7 @@ defmt = "1.1.1"
 defmt-rtt = "1.3.0"
 panic-probe = { version = "1.0.0", features = ["print-defmt"] }
 stm32-hal2 = { version = "2.1.10", features = ["g071"] }
-kyrylscript = { package = "ks-vm-new", path = "../kyryl-script/workspace/ks-vm-new", default-features = false }
+kyrylscript = { package = "ks-vm-new", path = "../kyrylscript/workspace/ks-vm-new", default-features = false }
 embedded-alloc = "0.7.0"
 
 # cargo build/run
