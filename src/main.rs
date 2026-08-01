@@ -19,7 +19,7 @@ use panic_probe as _;
 use stm32_hal2::{
     clocks::Clocks,
     gpio::{Pin, PinMode, Port},
-    pac::{self, Interrupt, USART1, interrupt},
+    pac::{self, Interrupt, interrupt},
     usart::{Usart, UsartConfig, UsartInterrupt},
 };
 
@@ -36,14 +36,15 @@ static mut HEAP_MEM: [u8; HEAP_SIZE] = [0; HEAP_SIZE];
 extern crate alloc;
 
 mod ks_std;
+mod programator;
+mod programator_states;
 
-use alloc::{boxed::Box, vec::Vec};
-use ks_std::{KsDelay, SetLed8};
-use kyrylscript::VM;
+use kyrylscript::{Program, VM};
 
-static BYTECODE: Mutex<RefCell<Vec<u8>>> = Mutex::new(RefCell::new(Vec::new()));
+use crate::{programator::Programator, programator_states::ProgramatorStates};
+
+static PROGRAMATOR: Mutex<RefCell<Programator>> = Mutex::new(RefCell::new(Programator::new()));
 static READY: AtomicBool = AtomicBool::new(false);
-static UART: Mutex<RefCell<Option<Usart<USART1>>>> = Mutex::new(RefCell::new(None));
 
 #[entry]
 fn main() -> ! {
@@ -70,14 +71,32 @@ fn main() -> ! {
     }
 
     free(|cs| {
-        UART.borrow(cs).replace(Some(uart));
+        let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
+        programator.uart = Some(uart);
     });
+
+    let mut vm: Option<VM> = None;
 
     loop {
         let uart_ready = READY.load(Ordering::Relaxed);
         if uart_ready {
-            // activate VM for KyrylScript
-            // and go to critical_section
+            free(|cs| {
+                READY.store(false, Ordering::Relaxed);
+                let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
+                let bytes = programator.take_bytes();
+                let program = Program::deserialize(bytes);
+                if let Ok(program) = program {
+                    vm = Some(VM::from(program))
+                } else {
+                    println!("Cannot load the program");
+                }
+            })
+        } else {
+            if let Some(vm) = vm.as_mut() {
+                if !vm.is_empty() {
+                    let _ = vm.step();
+                }
+            }
         }
     }
 }
@@ -85,16 +104,16 @@ fn main() -> ! {
 #[interrupt]
 fn USART1() {
     free(|cs| {
-        let mut uart_ref = UART.borrow(cs).borrow_mut();
-        if let Some(uart) = uart_ref.as_mut() {
-            uart.clear_interrupt(UsartInterrupt::ReadNotEmpty);
-            let mut bytecode = BYTECODE.borrow(cs).borrow_mut();
-            let byte = uart.read_one();
-            bytecode.push(byte);
+        let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
+        let result = programator.load_byte();
 
-            if bytecode.len() >= 1024 {
-                READY.store(true, Ordering::Relaxed);
-            }
+        if let Err(error) = result {
+            println!("ERROR: {}", error);
+            return;
+        }
+
+        if let ProgramatorStates::Loaded = programator.state {
+            READY.store(true, Ordering::Relaxed);
         }
     });
 }
