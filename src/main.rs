@@ -39,7 +39,7 @@ mod ks_std;
 mod programator;
 mod programator_states;
 
-use kyrylscript::{Program, VM};
+// use kyrylscript::{Program, VM};
 
 use crate::{programator::Programator, programator_states::ProgramatorStates};
 
@@ -75,7 +75,7 @@ fn main() -> ! {
         programator.uart = Some(uart);
     });
 
-    let mut vm: Option<VM> = None;
+    // let mut vm: Option<VM> = None;
 
     loop {
         let uart_ready = READY.load(Ordering::Relaxed);
@@ -84,19 +84,15 @@ fn main() -> ! {
                 READY.store(false, Ordering::Relaxed);
                 let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
                 let bytes = programator.take_bytes();
-                let program = Program::deserialize(bytes);
-                if let Ok(program) = program {
-                    vm = Some(VM::from(program))
-                } else {
-                    println!("Cannot load the program");
-                }
+                println!("{:?}", bytes);
+
+                // let program = Program::deserialize(bytes);
+                // if let Ok(program) = program {
+                //     vm = Some(VM::from(program))
+                // } else {
+                //     println!("Cannot load the program");
+                // }
             })
-        } else {
-            if let Some(vm) = vm.as_mut() {
-                if !vm.is_empty() {
-                    let _ = vm.step();
-                }
-            }
         }
     }
 }

@@ -1,5 +1,7 @@
 use core::mem;
 
+use defmt::println;
+
 use alloc::vec::Vec;
 use stm32_hal2::{
     pac::USART1,
@@ -58,9 +60,10 @@ impl Programator {
 
     pub fn load_byte(&mut self) -> Result<(), &str> {
         let uart = self.uart.as_mut().ok_or("No UART")?;
+        let byte = uart.read_one();
         uart.clear_interrupt(UsartInterrupt::ReadNotEmpty);
 
-        let byte = uart.read_one();
+        println!("The byte was received, {}", byte);
 
         match self.state {
             ProgramatorStates::Ready => self.initialize(byte)?,
