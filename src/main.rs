@@ -106,7 +106,6 @@ fn main() -> ! {
             })
         } else {
             if !vm.is_empty() {
-                println!("Hello World");
                 let res = vm.step();
                 if let Err(err) = res {
                     println!("KYRYLSCRIPT PANIC: {:?}", &err.message);

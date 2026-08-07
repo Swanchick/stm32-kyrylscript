@@ -10,7 +10,7 @@ impl KsCall for KsPrintln {
         let mut output = String::new();
 
         for _ in 0..arguments {
-            let argument = helper.runner.acc.pop(gvs)?;
+            let argument = helper.runner.acc.last(gvs)?.clone();
 
             match argument.value_type {
                 INT_TYPE => output.push_str(&(argument.value as i64).to_string()),
@@ -18,6 +18,8 @@ impl KsCall for KsPrintln {
                 STRING_TYPE => output.push_str(gvs.collection_string(argument.value)?),
                 _ => {}
             }
+
+            helper.runner.acc.pop_data()?;
         }
 
         println!("{}", &output);
