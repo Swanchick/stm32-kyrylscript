@@ -4,14 +4,14 @@ use defmt::println;
 
 use alloc::vec::Vec;
 use stm32_hal2::{
-    pac::USART1,
+    pac::USART2,
     usart::{Usart, UsartInterrupt},
 };
 
 use crate::programator_states::ProgramatorStates;
 
 pub struct Programator {
-    pub uart: Option<Usart<USART1>>,
+    pub uart: Option<Usart<USART2>>,
     pub state: ProgramatorStates,
     pub bytes: Vec<u8>,
 }
@@ -63,7 +63,7 @@ impl Programator {
         let byte = uart.read_one();
         uart.clear_interrupt(UsartInterrupt::ReadNotEmpty);
 
-        println!("The byte was received, {}", byte);
+        // println!("The byte was received, {}", byte);
 
         match self.state {
             ProgramatorStates::Ready => self.initialize(byte)?,

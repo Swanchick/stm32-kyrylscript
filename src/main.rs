@@ -6,6 +6,7 @@ use core::{
     sync::atomic::{AtomicBool, Ordering},
 };
 
+use alloc::boxed::Box;
 use cortex_m::{
     interrupt::{Mutex, free},
     peripheral::NVIC,
@@ -39,9 +40,9 @@ mod ks_std;
 mod programator;
 mod programator_states;
 
-// use kyrylscript::{Program, VM};
+use kyrylscript::{Program, VM};
 
-use crate::{programator::Programator, programator_states::ProgramatorStates};
+use crate::{ks_std::KsPrintln, programator::Programator, programator_states::ProgramatorStates};
 
 static PROGRAMATOR: Mutex<RefCell<Programator>> = Mutex::new(RefCell::new(Programator::new()));
 static READY: AtomicBool = AtomicBool::new(false);
@@ -60,14 +61,14 @@ fn main() -> ! {
     let clock_cfg = Clocks::default();
     clock_cfg.setup().unwrap();
 
-    let _uart_tx = Pin::new(Port::C, 4, PinMode::Alt(7));
-    let _uart_rx = Pin::new(Port::C, 5, PinMode::Alt(7));
+    let _uart_tx = Pin::new(Port::A, 2, PinMode::Alt(1));
+    let _uart_rx = Pin::new(Port::A, 3, PinMode::Alt(1));
 
-    let mut uart = Usart::new(dp.USART1, 115_200, UsartConfig::default(), &clock_cfg).unwrap();
+    let mut uart = Usart::new(dp.USART2, 115_200, UsartConfig::default(), &clock_cfg).unwrap();
     uart.enable_interrupt(UsartInterrupt::ReadNotEmpty).unwrap();
 
     unsafe {
-        NVIC::unmask(Interrupt::USART1);
+        NVIC::unmask(Interrupt::USART2);
     }
 
     free(|cs| {
@@ -75,7 +76,7 @@ fn main() -> ! {
         programator.uart = Some(uart);
     });
 
-    // let mut vm: Option<VM> = None;
+    let mut vm: Option<VM> = None;
 
     loop {
         let uart_ready = READY.load(Ordering::Relaxed);
@@ -84,21 +85,33 @@ fn main() -> ! {
                 READY.store(false, Ordering::Relaxed);
                 let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
                 let bytes = programator.take_bytes();
-                println!("{:?}", bytes);
 
-                // let program = Program::deserialize(bytes);
-                // if let Ok(program) = program {
-                //     vm = Some(VM::from(program))
-                // } else {
-                //     println!("Cannot load the program");
-                // }
+                let program = Program::deserialize(bytes);
+                if let Ok(program) = program {
+                    let mut vm_local = VM::from(program);
+                    vm_local.init();
+                    vm_local.add_native(Box::new(KsPrintln {}));
+
+                    vm = Some(vm_local)
+                } else {
+                    println!("Cannot load the program");
+                }
             })
+        } else {
+            if let Some(vm_local) = &mut vm {
+                let res = vm_local.step();
+
+                if let Err(err) = res {
+                    println!("KYRYLSCRIPT PANIC: {:?}", &err.message);
+                    vm = None;
+                }
+            }
         }
     }
 }
 
 #[interrupt]
-fn USART1() {
+fn USART2() {
     free(|cs| {
         let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
         let result = programator.load_byte();
