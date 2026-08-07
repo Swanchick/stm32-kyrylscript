@@ -1,7 +1,5 @@
 use cortex_m::delay::Delay;
 
-use defmt::println;
-
 use kyrylscript::{INT_TYPE, KsCall, NativeHelper, VMResult};
 
 pub struct KsDelay {
@@ -15,16 +13,14 @@ impl KsCall for KsDelay {
         }
 
         let gvs = helper.gvs;
-        let variable = helper.runner.acc.last(gvs)?;
+        let variable = helper.runner.acc.pop(gvs)?;
 
         if variable.value_type != INT_TYPE {
             return Ok(());
         }
 
         let ms = variable.value as u32;
-        println!("Waiting");
         self.delay.delay_ms(ms);
-
         Ok(())
     }
 }

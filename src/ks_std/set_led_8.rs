@@ -1,32 +1,45 @@
-use defmt::println;
+use stm32_hal2::gpio::{Pin, PinMode, Port};
 
-use stm32_hal2::gpio::Pin;
+use kyrylscript::{BOOLEAN_TYPE, INT_TYPE, KsCall, NativeHelper, STRING_TYPE, VMError, VMResult};
 
-use kyrylscript::{BOOLEAN_TYPE, KsCall, NativeHelper, VMResult};
+pub struct DigitalWrite;
 
-pub struct SetLed8 {
-    pub led8: Pin,
-}
-
-impl KsCall for SetLed8 {
+impl KsCall for DigitalWrite {
     fn call<'a>(&mut self, arguments: usize, helper: NativeHelper<'a>) -> VMResult<()> {
-        if arguments != 1 {
+        if arguments != 3 {
             return Ok(());
         }
 
         let gvs = helper.gvs;
-        let variable = helper.runner.acc.last(gvs)?;
+        let runner = helper.runner;
+        let port = runner.acc.pop(gvs)?;
+        if port.value_type != STRING_TYPE {
+            return Err(VMError::from("Variable is not a string"));
+        }
+        let port = gvs.collection_string(port.value)?;
+        let port = match port {
+            "A" => Ok(Port::A),
+            "B" => Ok(Port::B),
+            "C" => Ok(Port::C),
+            _ => Err("Invalid port line"),
+        }?;
 
-        if variable.value_type != BOOLEAN_TYPE {
-            return Ok(());
+        let pin = runner.acc.pop(gvs)?;
+        if pin.value_type != INT_TYPE {
+            return Err(VMError::from("Variable is not an int"));
         }
 
-        if variable.as_boolean() {
-            self.led8.set_high();
-            println!("THE LED IS HIGH");
+        let mut pin = Pin::new(port, pin.value as u8, PinMode::Output);
+
+        let toggle = runner.acc.pop(gvs)?;
+        if toggle.value_type != BOOLEAN_TYPE {
+            return Err(VMError::from("Variable is not boolean"));
+        }
+
+        if toggle.as_boolean() {
+            pin.set_high();
         } else {
-            self.led8.set_low();
-            println!("THE LED IS LOW");
+            pin.set_low();
         }
 
         Ok(())

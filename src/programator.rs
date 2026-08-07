@@ -1,7 +1,5 @@
 use core::mem;
 
-use defmt::println;
-
 use alloc::vec::Vec;
 use stm32_hal2::{
     pac::USART2,

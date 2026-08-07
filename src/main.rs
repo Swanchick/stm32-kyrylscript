@@ -8,6 +8,7 @@ use core::{
 
 use alloc::boxed::Box;
 use cortex_m::{
+    delay::Delay,
     interrupt::{Mutex, free},
     peripheral::NVIC,
 };
@@ -42,7 +43,11 @@ mod programator_states;
 
 use kyrylscript::{Program, VM};
 
-use crate::{ks_std::KsPrintln, programator::Programator, programator_states::ProgramatorStates};
+use crate::{
+    ks_std::{DigitalWrite, KsDelay, KsPrintln},
+    programator::Programator,
+    programator_states::ProgramatorStates,
+};
 
 static PROGRAMATOR: Mutex<RefCell<Programator>> = Mutex::new(RefCell::new(Programator::new()));
 static READY: AtomicBool = AtomicBool::new(false);
@@ -53,13 +58,15 @@ fn main() -> ! {
         HEAP.init(core::ptr::addr_of_mut!(HEAP_MEM) as usize, HEAP_SIZE);
     }
 
-    let _cp = cortex_m::Peripherals::take().unwrap();
+    let cp = cortex_m::Peripherals::take().unwrap();
     let dp = pac::Peripherals::take().unwrap();
 
     println!("The system has been started");
 
     let clock_cfg = Clocks::default();
     clock_cfg.setup().unwrap();
+
+    let delay = Delay::new(cp.SYST, clock_cfg.systick());
 
     let _uart_tx = Pin::new(Port::A, 2, PinMode::Alt(1));
     let _uart_rx = Pin::new(Port::A, 3, PinMode::Alt(1));
@@ -76,7 +83,10 @@ fn main() -> ! {
         programator.uart = Some(uart);
     });
 
-    let mut vm: Option<VM> = None;
+    let mut vm = VM::from(Program::new());
+    vm.add_native(Box::new(DigitalWrite));
+    vm.add_native(Box::new(KsDelay { delay }));
+    vm.add_native(Box::new(KsPrintln));
 
     loop {
         let uart_ready = READY.load(Ordering::Relaxed);
@@ -88,22 +98,19 @@ fn main() -> ! {
 
                 let program = Program::deserialize(bytes);
                 if let Ok(program) = program {
-                    let mut vm_local = VM::from(program);
-                    vm_local.init();
-                    vm_local.add_native(Box::new(KsPrintln {}));
-
-                    vm = Some(vm_local)
+                    vm.reset(program);
+                    vm.init();
                 } else {
                     println!("Cannot load the program");
                 }
             })
         } else {
-            if let Some(vm_local) = &mut vm {
-                let res = vm_local.step();
-
+            if !vm.is_empty() {
+                println!("Hello World");
+                let res = vm.step();
                 if let Err(err) = res {
                     println!("KYRYLSCRIPT PANIC: {:?}", &err.message);
-                    vm = None;
+                    vm.reset(Program::new());
                 }
             }
         }

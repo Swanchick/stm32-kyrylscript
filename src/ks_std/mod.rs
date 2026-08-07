@@ -4,4 +4,4 @@ mod set_led_8;
 
 pub use ks_delay::KsDelay;
 pub use ks_println::KsPrintln;
-pub use set_led_8::SetLed8;
+pub use set_led_8::DigitalWrite;
