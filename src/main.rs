@@ -95,6 +95,8 @@ fn main() -> ! {
                 READY.store(false, Ordering::Relaxed);
                 let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
                 let bytes = programator.take_bytes();
+
+                println!("{:?}", bytes);
                 vm.reset(bytes.into_boxed_slice());
                 vm.init();
             })
