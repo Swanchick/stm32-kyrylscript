@@ -1,4 +1,3 @@
-use defmt::println;
 use stm32_hal2::gpio::{Pin, PinMode, Port};
 
 use kyrylscript::{BOOLEAN_TYPE, INT_TYPE, KsCall, NativeHelper, STRING_TYPE, VMError, VMResult};
@@ -17,7 +16,7 @@ impl KsCall for DigitalWrite {
         if port.value_type != STRING_TYPE {
             return Err(VMError::from("Variable is not a string"));
         }
-        let port = gvs.collection_string(port.value)?;
+        let port = gvs.collection_string(port.value as u32)?;
 
         runner.acc.pop_data()?;
         let port = match port {

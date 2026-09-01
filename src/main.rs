@@ -41,7 +41,7 @@ mod ks_std;
 mod programator;
 mod programator_states;
 
-use kyrylscript::{Program, VM};
+use kyrylscript::VM;
 
 use crate::{
     ks_std::{DigitalWrite, KsDelay, KsPrintln},
@@ -83,7 +83,7 @@ fn main() -> ! {
         programator.uart = Some(uart);
     });
 
-    let mut vm = VM::from(Program::new());
+    let mut vm = VM::from(Box::default());
     vm.add_native(Box::new(DigitalWrite));
     vm.add_native(Box::new(KsDelay { delay }));
     vm.add_native(Box::new(KsPrintln));
@@ -95,21 +95,15 @@ fn main() -> ! {
                 READY.store(false, Ordering::Relaxed);
                 let mut programator = PROGRAMATOR.borrow(cs).borrow_mut();
                 let bytes = programator.take_bytes();
-
-                let program = Program::deserialize(bytes);
-                if let Ok(program) = program {
-                    vm.reset(program);
-                    vm.init();
-                } else {
-                    println!("Cannot load the program");
-                }
+                vm.reset(bytes.into_boxed_slice());
+                vm.init();
             })
         } else {
             if !vm.is_empty() {
                 let res = vm.step();
                 if let Err(err) = res {
                     println!("KYRYLSCRIPT PANIC: {:?}", &err.message);
-                    vm.reset(Program::new());
+                    vm.reset(Box::default());
                 }
             }
         }

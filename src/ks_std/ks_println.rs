@@ -15,7 +15,7 @@ impl KsCall for KsPrintln {
             match argument.value_type {
                 INT_TYPE => output.push_str(&(argument.value as i64).to_string()),
                 FLOAT_TYPE => output.push_str(&(f64::from_bits(argument.value)).to_string()),
-                STRING_TYPE => output.push_str(gvs.collection_string(argument.value)?),
+                STRING_TYPE => output.push_str(gvs.collection_string(argument.value as u32)?),
                 _ => {}
             }
 
